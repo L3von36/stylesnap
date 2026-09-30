@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../core/constants.dart';
 import '../core/theme.dart';
 import '../data/catalog.dart';
+import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/ui_kit.dart';
 import '../widgets/shared.dart';

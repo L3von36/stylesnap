@@ -210,38 +210,62 @@ class LiveMirrorEngine {
     }
   }
 
-  /// YUV420 (Android NV21-ish) → RGBA.
+  /// YUV420 (semi-planar or planar, as delivered by the camera plugin) → RGBA.
   Uint8List? _yuvToRgba(CameraImage image) {
     try {
-      final width = image.width;
-      final height = image.height;
+      final int width = image.width;
+      final int height = image.height;
       if (image.planes.length < 3) return null; // not yuv420
       final yPlane = image.planes[0];
       final uPlane = image.planes[1];
       final vPlane = image.planes[2];
-      final out = Uint8List(width * height * 4);
-      final yRowStride = yPlane.bytesPerRow;
-      final yPixStride = yPlane.pixelStride;
-      final uRowStride = uPlane.bytesPerRow;
-      final uPixStride = uPlane.pixelStride;
-      final vRowStride = vPlane.bytesPerRow;
-      final vPixStride = vPlane.pixelStride;
+      final Uint8List yb = yPlane.bytes;
+      final Uint8List ub = uPlane.bytes;
+      final Uint8List vb = vPlane.bytes;
+      final int yRowStride = yPlane.bytesPerRow;
+      final int uRowStride = uPlane.bytesPerRow;
+      final int vRowStride = vPlane.bytesPerRow;
+      // camera_android_camerax delivers interleaved UV planes (pixel stride 2);
+      // some planar sensors deliver stride 1. Plane no longer exposes
+      // pixelStride, so infer it from the row stride.
+      final int uvWidth = (width + 1) ~/ 2;
+      final int uvPixStride = (uRowStride ~/ uvWidth) >= 2 ? 2 : 1;
 
-      for (var y = 0; y < height; y++) {
-        for (var x = 0; x < width; x++) {
-          final yi = y * yRowStride + x * yPixStride;
-          final uvx = x ~/ 2;
-          final uvy = y ~/ 2;
-          final uu = uPlane.bytes[uvy * uRowStride + uvx * uPixStride] - 128;
-          final vv = vPlane.bytes[uvy * vRowStride + uvx * vPixStride] - 128;
-          final yy = yPlane.bytes[yi].toDouble();
-          var r = (yy + 1.402 * vv).round();
-          var g = (yy - 0.344136 * uu - 0.714136 * vv).round();
-          var b = (yy + 1.772 * uu).round();
-          r = r.clamp(0, 255);
-          g = g.clamp(0, 255);
-          b = b.clamp(0, 255);
-          final oi = (y * width + x) * 4;
+      final out = Uint8List(width * height * 4);
+      for (int y = 0; y < height; y++) {
+        final int yRow = y * yRowStride;
+        final int uvRow = (y >> 1) * uRowStride;
+        final int vRow = (y >> 1) * vRowStride;
+        for (int x = 0; x < width; x++) {
+          final int uvCol = (x >> 1) * uvPixStride;
+          int yIdx = yRow + x;
+          if (yIdx >= yb.length) yIdx = yb.length - 1;
+          int uIdx = uvRow + uvCol;
+          if (uIdx >= ub.length) uIdx = ub.length - 1;
+          int vIdx = vRow + uvCol;
+          if (vIdx >= vb.length) vIdx = vb.length - 1;
+          final int uu = ub[uIdx] - 128;
+          final int vv = vb[vIdx] - 128;
+          final double yy = yb[yIdx].toDouble();
+          int r = (yy + 1.402 * vv).round();
+          int g = (yy - 0.344136 * uu - 0.714136 * vv).round();
+          int b = (yy + 1.772 * uu).round();
+          if (r < 0) {
+            r = 0;
+          } else if (r > 255) {
+            r = 255;
+          }
+          if (g < 0) {
+            g = 0;
+          } else if (g > 255) {
+            g = 255;
+          }
+          if (b < 0) {
+            b = 0;
+          } else if (b > 255) {
+            b = 255;
+          }
+          final int oi = (y * width + x) * 4;
           out[oi] = r;
           out[oi + 1] = g;
           out[oi + 2] = b;

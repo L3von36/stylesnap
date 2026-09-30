@@ -128,11 +128,16 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           APK="dist/${{ steps.stage.outputs.apk_name }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK" --clobber
-          else
-            gh release create "$TAG" "$APK" --title "StyleSnap $TAG" --generate-notes
-          fi
+          # GitHub's API occasionally answers 500 right after repo creation — retry.
+          for i in 1 2 3 4; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" "$APK" --clobber && break
+            else
+              gh release create "$TAG" "$APK" --title "StyleSnap $TAG" --generate-notes && break
+            fi
+            echo "attempt $i failed; retrying in 15 s ..."
+            sleep 15
+          done
 
       # Rolling development release: main-branch builds replace StyleSnap-dev.apk.
       - name: Update rolling development release (branch build)
@@ -160,4 +165,18 @@ jobs:
               --title "StyleSnap — development build" \
               --notes "$NOTES (commit ${GITHUB_SHA::7}, app v${{ steps.stage.outputs.version }})" \
               --prerelease
+          fi
+          # GitHub's API occasionally answers 500 on fresh repos — retry the
+          # whole publish flow if nothing above succeeded yet.
+          if ! gh release view latest >/dev/null 2>&1; then
+            for i in 2 3 4; do
+              echo "attempt $i: retrying release publish in 15 s ..."
+              sleep 15
+              if gh release create latest "$APK" \
+                   --title "StyleSnap — development build" \
+                   --notes "$NOTES (commit ${GITHUB_SHA::7}, app v${{ steps.stage.outputs.version }})" \
+                   --prerelease; then
+                break
+              fi
+            done
           fi

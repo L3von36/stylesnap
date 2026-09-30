@@ -1,0 +1,46 @@
+name: stylesnap
+description: "StyleSnap — AI virtual try-on mirror powered by JoyAI-Video-Edit."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management
+  provider: ^6.1.2
+
+  # Design system
+  google_fonts: ^6.2.1
+
+  # Camera & media
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+  image: ^4.2.2
+
+  # Storage
+  shared_preferences: ^2.3.2
+  path_provider: ^2.1.4
+
+  # Networking
+  http: ^1.2.2
+  web_socket_channel: ^3.0.1
+
+  # Sharing
+  share_plus: ^10.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/garments/
+    - assets/demo/
+    - assets/brand/
